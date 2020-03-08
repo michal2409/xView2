@@ -257,15 +257,13 @@ if __name__ == "__main__":
         if not path.isdir(image_dir):
             print(
                 "Error, could not find image files in {}.\n\n"
-                .format(image_dir),
-                file=stderr)
+                .format(image_dir))
             exit(2)
 
         if not path.isdir(json_dir):
             print(
                 "Error, could not find labels in {}.\n\n"
-                .format(json_dir),
-                file=stderr)
+                .format(json_dir))
             exit(3)
 
         if not path.isdir(output_dir):
