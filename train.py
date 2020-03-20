@@ -18,19 +18,19 @@ def train_epoch(model, dataloader, device):
     model.train()
     total, correct = 0, 0
     acc, loss_avg, f1 = utils.RunningAverage(), utils.RunningAverage(), utils.RunningF1()
-    for X, y_true in dataloader:
-        X, y_true = X.to(device), y_true.type(torch.LongTensor).to(device).squeeze()
+    for X, (y_img, y_aug) in dataloader:
+        X, y_img, y_aug = X.to(device), y_img.type(torch.LongTensor).to(device).squeeze(), y_aug.to(device)
         optimizer.zero_grad()
-        y_pred = model(X.float())
-        loss = loss_fn(y_pred, y_true)
+        pred_img, pred_aug = model(X.float())
+        loss = 0.7*loss_fn(pred_img, y_img) + 0.3*loss_fn(pred_aug, y_aug)
         loss.backward()
         optimizer.step()
         loss_avg.update(loss.item())
 
-        _, predicted = torch.max(y_pred.data, 1)
-        correct, total = (predicted == y_true).sum().item(), y_true.shape[0]*y_true.shape[1]*y_true.shape[2]
+        _, predicted = torch.max(pred_img.data, 1)
+        correct, total = (predicted == y_img).sum().item(), y_img.shape[0]*y_img.shape[1]*y_img.shape[2]
         acc.update(100*correct/total)
-        f1.update(predicted.squeeze().cpu().numpy(), y_true.squeeze().cpu().numpy())
+        f1.update(predicted.squeeze().cpu().numpy(), y_img.squeeze().cpu().numpy())
     scheduler.step()
     return acc(), loss_avg(), f1()
 
