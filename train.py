@@ -6,16 +6,15 @@ import segm as smp
 import logging
 import numpy as np
 import segm as smp
-from evaluate import evaluate 
+from evaluate import evaluate
 import models.data_loader as data_loader
 import torchvision.transforms.functional as TF
 
 def train_epoch(model, dataloader, device):
-    weights = torch.tensor([1, 1.5]).to(device)
-    loss_fn = torch.nn.CrossEntropyLoss(weights)
+    loss_fn = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=params['lr'], weight_decay=0.0001)
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[60, 130], gamma=0.1)
-    
+
     model.train()
     total, correct = 0, 0
     acc, loss_avg, f1 = utils.RunningAverage(), utils.RunningAverage(), utils.RunningF1()
@@ -58,7 +57,7 @@ if __name__ == '__main__':
 
     n_epochs = params['epochs']
     best_val_loss, best_f1 = float('Inf'), 0.0
-    logging.info("Starting training...")
+    logging.info("Training...")
     for epoch in range(n_epochs):
         train_acc, train_loss, train_f1 = train_epoch(model, train_loader, device)
         val_acc, val_loss, f1_val = evaluate(model, val_loader, device, params)

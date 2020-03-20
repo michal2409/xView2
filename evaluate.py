@@ -17,7 +17,7 @@ def _save_imgs(y_pred, y_true, idx, output_dir):
         if y_true is not None:
             plt.imsave(os.path.join(output_dir, str(idx+i)+'true.png'), y_true.squeeze()[i])
         
-def _test_time_augmentation(X, y_pred, device):
+def _test_time_augmentation(model, X, y_pred, device):
     y_vflip = torch.flip(model(torch.flip(X, [2]).to(device).float()), [2])
     y_hflip = torch.flip(model(torch.flip(X, [3]).to(device).float()), [3])
     y_pred = (y_pred+y_hflip+y_vflip) / 3
@@ -35,7 +35,7 @@ def evaluate(model, dataloader, device, params, save=False, output_dir=None):
             X, y_true = X.to(device).float(), y_true.type(torch.LongTensor).to(device).squeeze()
             y_pred = model(X)
             if params['test_time_augmentation']:
-                y_pred = _test_time_augmentation(X, y_pred, device)
+                y_pred = _test_time_augmentation(model, X, y_pred, device)
 
             loss = loss_fn(y_pred, y_true)
             loss_avg.update(loss.item())
