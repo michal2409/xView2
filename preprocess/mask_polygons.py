@@ -248,11 +248,11 @@ if __name__ == "__main__":
     # Getting the list of the disaster types under the xBD directory
     disasters = next(walk(args.input))[1]
 
-    for disaster in tqdm(disasters, desc='Masking', unit='disaster'):
+    for disaster in tqdm(['test'], desc='Masking', unit='disaster'):
         # Create the full path to the images, labels, and mask output directories
-        image_dir = path.join(args.input, disaster, 'images')
-        json_dir = path.join(args.input, disaster, 'labels')
-        output_dir = path.join(args.input, disaster, 'masks')
+        image_dir = path.join(args.input, 'images')
+        json_dir = path.join(args.input, 'labels')
+        output_dir = path.join(args.input, 'masks')
 
         if not path.isdir(image_dir):
             print(
