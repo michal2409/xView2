@@ -7,16 +7,7 @@ import os
 import sys
 import datetime
 
-DAMAGE = False
-
-def get_damage_loss(pred, true, loss_fn):
-    loss0 = loss_fn(pred[:, 0, ...], true[:, :, :, 0].type_as(pred))
-    loss1 = loss_fn(pred[:, 1, ...], true[:, :, :, 1].type_as(pred))
-    loss2 = loss_fn(pred[:, 2, ...], true[:, :, :, 2].type_as(pred))
-    loss3 = loss_fn(pred[:, 3, ...], true[:, :, :, 3].type_as(pred))
-    loss4 = loss_fn(pred[:, 4, ...], true[:, :, :, 4].type_as(pred))
-    loss = 0.05 * loss0 + 0.2 * loss1 + 0.8 * loss2 + 0.7 * loss3 + 0.4 * loss4
-    return loss
+DAMAGE = True
 
 class RunningF1():
     def __init__(self):
@@ -48,9 +39,9 @@ class RunningF1():
     def update(self, pred, targ):
         if DAMAGE:
             for c in [1,2,3,4]: 
-                self.TP_damage[c-1] += np.logical_and(pred == c, targ == c).sum()
-                self.FN_damage[c-1] += np.logical_and(pred != c, targ == c).sum()
-                self.FP_damage[c-1] += np.logical_and(pred == c, targ != c).sum()
+                self.TP_damage[c-1] += np.logical_and(pred == c, targ[:, :, :, c] == 1).sum()
+                self.FN_damage[c-1] += np.logical_and(pred != c, targ[:, :, :, c] == 1).sum()
+                self.FP_damage[c-1] += np.logical_and(pred == c, targ[:, :, :, c] != 1).sum()
         else:
             self.TP += np.logical_and(pred == 1, targ == 1).sum()
             self.FN += np.logical_and(pred != 1, targ == 1).sum()
@@ -58,9 +49,9 @@ class RunningF1():
 
     def __call__(self):
         if DAMAGE:
-            df1 = [self.get_damage_f1(c) for c in [1,2,3,4]]
-            print(df1)
-            return len(df1) / sum((x+1e-6)**-1 for x in df1)
+            f1_scores = [self.get_damage_f1(c) for c in [1,2,3,4]]
+            print(f1_scores)
+            return 4 / sum([1/(x+1e-6) for x in f1_scores])
             
         prec, rec = self.precision(self.TP, self.FP), self.recall(self.TP, self.FN)
         assert 0 <= prec <= 1 and 0 <= rec <= 1
@@ -80,7 +71,7 @@ class ConfigParser():
         self.read_field_value("val_data", "/scidatasm/michalf/hold")
         self.read_field_value("batch_size", 64)
         self.read_field_value("model_name", "Unet")
-        self.read_field_value("pretrained_model", None)
+        self.read_field_value("load_model", None)
         self.read_field_value("lr", 1e-3)
         self.read_field_value("epochs", 1)
 
@@ -123,8 +114,8 @@ class RunningAverage():
     def __call__(self):
         return self.total/float(self.steps)
 
-def log_epoch(epoch, n_epochs, train_loss, train_f1, val_loss, val_f1):
-        logging.info(f'Epoch: [{epoch+1}/{n_epochs}] loss: {train_loss:.4f} - f1: {train_f1:.4f} - val_loss: {val_loss:.4f} - val_f1 {val_f1:.4f}')
+def log_epoch(epoch, n_epochs, train_loss, val_f1):
+        logging.info(f'Epoch: [{epoch+1}/{n_epochs}] train loss: {train_loss:.4f} - val_f1 {val_f1:.4f}')
 
 def set_logger(log_path):
     """Set the logger to log info in terminal and file `log_path`.
@@ -165,17 +156,19 @@ def set_seed():
     torch.backends.cudnn.deterministic=True
     
 def prepare_env(test=False):
-    device = torch.device('cuda:0')
     config = ConfigParser('params.json')
     params = config.get_parameters()
     output_dir = get_output_dir(test)
     set_logger(output_dir)
+    device = torch.device(f'cuda:0')
     
     return device, params, output_dir
 
 def load_model(model, path):
     pretrained_model = torch.load(path)
     for name, tensor in pretrained_model.items():
+        if 'res' in name:
+            continue
         name = name.replace('module.', '', 1)
         model.state_dict()[name].copy_(tensor)
     return model

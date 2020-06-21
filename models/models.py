@@ -1,10 +1,9 @@
 import numpy as np
-
 import torch
 from torch import nn
 import torch.nn.functional as F
 import torchvision.models
-from resnest.torch import resnest101
+from resnest.torch import resnest101, resnest269, resnest200
 
 
 class ConvReluBN(nn.Module):
@@ -46,12 +45,11 @@ class Res101_Unet_Loc(nn.Module):
         self.conv9_2 = ConvRelu(decoder_filters[-4] + encoder_filters[-5], decoder_filters[-4])
         self.conv10 = ConvRelu(decoder_filters[-4], decoder_filters[-5])
         
-        self.res = nn.Conv2d(decoder_filters[-5], 1, 1, stride=1, padding=0)
+        self.res = nn.Conv2d(decoder_filters[-5], n_class, 1, stride=1, padding=0)
         
         self._initialize_weights()
 
         encoder = resnest101(pretrained=True)
-
         self.conv1 = nn.Sequential(
                         encoder.conv1,
                         encoder.bn1,
@@ -99,10 +97,9 @@ class Res101_Unet_Loc(nn.Module):
 class Res101_Unet_Double(nn.Module):
     def __init__(self, pretrained=True, **kwargs):
         super(Res101_Unet_Double, self).__init__()
-        
-        encoder_filters = [64, 256, 512, 1024, 2048]
+                
+        encoder_filters = [128, 256, 512, 1024, 2048]
         decoder_filters = np.asarray([16, 32, 64, 128, 256])
-        self.softmax = torch.nn.Softmax(dim=1)
 
         self.conv6 = ConvRelu(encoder_filters[-1], decoder_filters[-1])
         self.conv6_2 = ConvRelu(decoder_filters[-1] + encoder_filters[-2], decoder_filters[-1])
@@ -118,7 +115,7 @@ class Res101_Unet_Double(nn.Module):
 
         self._initialize_weights()
 
-        encoder = torchvision.models.resnet101(pretrained=pretrained)
+        encoder = resnest101(pretrained=True)
         self.conv1 = nn.Sequential(
                         encoder.conv1,
                         encoder.bn1,
@@ -162,7 +159,7 @@ class Res101_Unet_Double(nn.Module):
         dec10_0 = self.forward1(x[:, :3, :, :])
         dec10_1 = self.forward1(x[:, 3:, :, :])
         dec10 = torch.cat([dec10_0, dec10_1], 1)
-        return self.softmax(self.res(dec10))
+        return self.res(dec10)
         
     def _initialize_weights(self):
         for m in self.modules():

@@ -12,8 +12,11 @@ import matplotlib.pyplot as plt
 import models.data_loader as data_loader
 from models.models import *
 from PIL import Image
+from parallel import *
 
-DAMAGE = False
+DAMAGE = True
+torch.backends.cudnn.benchmark = True
+torch.backends.cudnn.enabled = True
 
 def _save_imgs(y_pred, y_true, idx, output_dir):
     for i in range(y_pred.shape[0]):
@@ -30,35 +33,22 @@ def _test_time_augmentation(model, X, y_pred, device):
     y_pred = (y_pred+y_hflip+y_vflip) / 3
     return y_pred
 
-def evaluate(model, dataloader, device, params, save=False, output_dir=None):
-    t0 = timeit.default_timer()
+def evaluate(model, loss_fn, dataloader, device, save=False, output_dir=None):
     model.eval()
-    loss_fn = nn.BCEWithLogitsLoss()
-    loss_avg, f1 = utils.RunningAverage(), utils.RunningF1()
-
+    f1 = utils.RunningF1()
     with torch.no_grad():
         for i, (X, y_true) in enumerate(dataloader):
-            X, y_true = X.to(device).float(), y_true.type(torch.LongTensor).to(device).squeeze()
+            X, y_true = X.to(device), y_true.to(device)
             y_pred = model(X)
-                
-            if DAMAGE:
-                loss = utils.get_damage_loss(y_pred, y_true[:, :, :, :5], loss_fn)
-            else:
-                loss = loss_fn(y_pred.squeeze(), y_true.type_as(y_pred))
-            
-            loss_avg.update(loss.item())
             
             if DAMAGE:
-                y_true = y_true[:, :, :, 5]
                 _, predicted = torch.max(y_pred.data, 1)
             else:
                 predicted = (y_pred[:, 0] > 0).long()
             f1.update(predicted.squeeze().cpu().numpy(), y_true.squeeze().cpu().numpy())
             if save:
                 _save_imgs(predicted.cpu().numpy(), y_true.cpu().numpy(), i*X.shape[0], output_dir)
-
-    elapsed = timeit.default_timer() - t0
-    return loss_avg(), f1(), elapsed
+    return f1()
 
 if __name__ == '__main__':
     utils.set_seed()
@@ -74,16 +64,13 @@ if __name__ == '__main__':
         model = Res101_Unet_Double().to(device)
     else:
         model = Res101_Unet_Loc().to(device)
+        
     logging.info("Finished building...")
-
-    if params['pretrained_model'] is not None:
+    if params['load_model'] is not None:
         logging.info("Loading pretrained weights")
-        model = utils.load_model(model, params['pretrained_model'])
-
-    if torch.cuda.device_count() > 1:
-        model = nn.DataParallel(model)
-    
+        model = utils.load_model(model, params['load_model'])
+    model = nn.DataParallel(model)
     logging.info("Evaluation...")
-    loss, f1, _ = evaluate(model, dataloader, device, params, True, output_dir)
-    logging.info(f'Loss: {loss:.4f} - F1 {f1:.4f}')
+    f1 = evaluate(model, dataloader, device, params, False, output_dir)
+    logging.info(f'F1 {f1:.4f}')
     logging.info("Finished...")
