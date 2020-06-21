@@ -1,0 +1,12 @@
+#!/bin/bash
+#
+#SBATCH --partition=common
+#SBATCH --qos=8gpu3d
+#SBATCH --gres=gpu:titanv:4
+#SBATCH --output=/results/michalf/logs1.txt
+#SBATCH --error=err.txt
+
+cd /results/michalf/xview2/
+source .xview2/bin/activate
+export TORCH_HOME=/results/michalf/checkpoints
+python3 train.py
