@@ -10,8 +10,8 @@ class DataModule(LightningDataModule):
         super().__init__()
         self.args = args
         self.train_path = os.path.join(args.data, "train")
-        self.val_path = os.path.join(args.data, "val")
-        self.test_path = os.path.join(args.data, "test")
+        self.val_path = os.path.join(args.data, "test")
+        self.test_path = os.path.join(args.data, "holdout")
 
         self.train_loader_kwargs = {
             "batch_size": self.args.batch_size,

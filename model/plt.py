@@ -5,10 +5,10 @@ import numpy as np
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from apex.optimizers import FusedAdam, FusedNovoGrad, FusedSGD
 from dllogger import JSONStreamBackend, Logger, StdOutBackend, Verbosity
 from PIL import Image
-from scipy.ndimage.morphology import binary_fill_holes
 from torch_optimizer import AdaBelief, AdaBound, AdamP, RAdam
 from utils.f1 import F1
 from utils.scheduler import NoamLR
@@ -31,6 +31,7 @@ class Model(pl.LightningModule):
         self.lr = args.lr
         self.n_class = 2 if self.args.type == "pre" else 5
         self.softmax = nn.Softmax(dim=1)
+        self.test_idx = 0
         self.dllogger = Logger(
             backends=[
                 JSONStreamBackend(Verbosity.VERBOSE, os.path.join(args.results, f"{args.logname}.json")),
@@ -63,7 +64,7 @@ class Model(pl.LightningModule):
         img, lbl = batch["image"], batch["mask"]
         pred = self.forward(img)
         self.f1_score.update(pred, lbl)
-        self.save_imgs(pred, lbl, batch_idx)
+        self.save(pred, lbl)
 
     def compute_loss(self, preds, label):
         if self.args.deep_supervision:
@@ -122,25 +123,25 @@ class Model(pl.LightningModule):
             self.dllogger.log(step=(), data=metrics)
             self.dllogger.flush()
 
-    def save_imgs(self, probs, targets, batch_idx):
-        preds = torch.argmax(probs, dim=1)
-        for i, (prob, pred, target) in enumerate(zip(probs, preds, targets)):
-            prob = prob.cpu().detach().numpy()
-            pred, target = self.to_numpy(pred), self.to_numpy(target)
+    def save(self, preds, targets):
+        if self.args.type == "pre":
+            probs = torch.sigmoid(preds[:, 1])
+        else:
+            if self.args.loss_str == "coral":
+                probs = torch.sum(torch.sigmoid(preds) > 0.5, dim=1) + 1
+            elif self.args.loss_str == "mse":
+                probs = torch.round(F.relu(preds[:, 0], inplace=True)) + 1
+            else:
+                probs = self.softmax(preds)
+
+        probs = probs.cpu().detach().numpy()
+        targets = targets.cpu().detach().numpy().astype(np.uint8)
+        for prob, target in zip(probs, targets):
             task = "localization" if self.args.type == "pre" else "damage"
-            if self.args.type == "pre":
-                pred = binary_fill_holes(pred).astype(np.uint8)
-            idx = self.args.val_batch_size * batch_idx + i
-            np.save(os.path.join("/results/predictions", f"test_{task}_{idx:05d}_probs"), prob)
-            self.save(pred, "predictions", f"test_{task}_{idx:05d}_prediction.png")
-            self.save(target, "targets", f"test_{task}_{idx:05d}_target.png")
-
-    @staticmethod
-    def to_numpy(tensor):
-        return tensor.cpu().detach().numpy().astype(np.uint8)
-
-    def save(self, img, mode, fname):
-        Image.fromarray(img).save(os.path.join(self.args.results, mode, fname))
+            fname = os.path.join(self.args.results, "probs", f"test_{task}_{self.test_idx:05d}")
+            self.test_idx += 1
+            np.save(fname, prob)
+            Image.fromarray(target).save(fname.replace("probs", "targets") + "_target.png")
 
     def on_test_epoch_start(self):
         self.f1_score.reset()
