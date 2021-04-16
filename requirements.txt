@@ -1,0 +1,12 @@
+git+https://github.com/zhanghang1989/ResNeSt
+git+https://github.com/NVIDIA/dllogger
+pillow==6.2.0
+tqdm==4.51.0
+joblib==0.17.0
+pytorch-lightning==1.0.0
+opencv-python==4.4.0.46
+shapely==1.7.1
+torch_optimizer==0.0.1a16
+albumentations==0.5.1
+fire==0.3.1
+monai==0.4.0

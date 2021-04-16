@@ -1,3 +1,0 @@
-srun --qos=8gpu3d --partition=common --gres=gpu:4 --constraint=homedir --nodelist=steven --pty /bin/bash -i
-
-export PATH=/usr/local/cuda-10.1/bin:$PATH
