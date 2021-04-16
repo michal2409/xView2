@@ -73,11 +73,15 @@ To convert the labels from *json* to *png* see `utils/convert2png.py` script. Fo
 
 This repository contains Dockerfile which handles all required dependencies. Below I present the steps to prepare the environment:
 
-1. Clone repository `git clone https://github.com/michal2409/xview2`
+1. Clone repository: `git clone https://github.com/michal2409/xview2 && cd xview2`
 
-2. Build docker image `docker build -t xview2 .`
+2. Build docker image: `docker build -t xview2 .`
 
-3. Run container `docker run -it --rm --gpus all --shm-size=8g --ulimit memlock=-1 --ulimit stack=67108864 -v RESULTS_PATH:/results -v DATA_PATH:/data xview2 bash` where **DATA_PATH** is path to xBD directory with layout as described in [dataset](#DATASET) section and **RESULTS_PATH** is a path to the directory for artifacts like checkpoints, logger output or prediction masks.
+3. Run container:
+```
+docker run -it --rm --gpus all --shm-size=8g --ulimit memlock=-1 --ulimit stack=67108864 -v RESULTS_PATH:/results -v DATA_PATH:/data xview2 bash
+```
+where **DATA_PATH** is path to xBD directory with layout as described in [dataset](#DATASET) section and **RESULTS_PATH** is a path to the directory for artifacts like checkpoints, logger output or prediction masks.
 
 # USAGE
 
@@ -143,7 +147,7 @@ python main.py --type post --dmg_model siamese --encoder resnest200 --loss_str f
 To evaluate trained model with evaluation batch size 8 on the test set launch:
 
 ```
-python main.py --type {pre, post} --ckpt <path/to/checkpoint> --gpus 1 --val_batch_size 8
+python main.py --exec_mode eval --type {pre, post} --ckpt <path/to/checkpoint> --gpus 1 --val_batch_size 8
 ```
 
 # REFERENCES
