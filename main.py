@@ -69,6 +69,7 @@ if __name__ == "__main__":
         model_ckpt = ModelCheckpoint(monitor="f1_score", mode="max", save_last=True)
         callbacks = [EarlyStopping(monitor="f1_score", patience=args.patience, verbose=True, mode="max")]
     else:
+        assert args.ckpt is not None, "No checkpoint found for evaluation"
         model = Model.load_from_checkpoint(args.ckpt)
 
     if args.type == "post" and args.ckpt_pre is not None:
@@ -111,12 +112,12 @@ if __name__ == "__main__":
     if args.exec_mode == "train":
         trainer.fit(model, data_module)
     else:
-        pred_dir = os.path.join(args.results, "predictions")
-        target_dir = os.path.join(args.results, "targets")
+        pred_dir = os.path.join(args.results, "probs")
+        targets_dir = os.path.join(args.results, "targets")
         if not os.path.exists(pred_dir):
             make_empty_dir(pred_dir)
-        if not os.path.exists(target_dir):
-            make_empty_dir(target_dir)
+        if not os.path.exists(targets_dir):
+            make_empty_dir(targets_dir)
         trainer.test(model, test_dataloaders=data_module.test_dataloader())
 
     if "PL_TRAINER_GPUS" in os.environ:

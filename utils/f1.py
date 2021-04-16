@@ -1,6 +1,18 @@
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 from pytorch_lightning.metrics import Metric
+
+
+def convert_to_labels(loss_str, logits):
+    if loss_str == "mse":
+        preds = torch.round(F.relu(logits[:, 0], inplace=True)) + 1
+        preds[preds > 4] = 4
+    elif loss_str == "coral":
+        preds = torch.sum(torch.sigmoid(logits) > 0.5, dim=1) + 1
+    else:
+        preds = torch.argmax(logits, dim=1) + 1
+    return preds
 
 
 class F1(Metric):
@@ -8,22 +20,15 @@ class F1(Metric):
         super().__init__(dist_sync_on_step=False)
         self.loss_str = args.loss_str
         self.n_class = 2 if args.type == "pre" else 5
-        self.softmax = torch.nn.Softmax(dim=1)
+        self.softmax = nn.Softmax(dim=1)
         self.add_state("tp", default=torch.zeros((self.n_class - 1,)), dist_reduce_fx="sum")
         self.add_state("fp", default=torch.zeros((self.n_class - 1,)), dist_reduce_fx="sum")
         self.add_state("fn", default=torch.zeros((self.n_class - 1,)), dist_reduce_fx="sum")
 
     def update(self, preds, targets):
-        if self.loss_str not in ["mse", "coral"]:
-            probs = self.softmax(preds)
+        probs = self.softmax(preds) if self.loss_str not in ["mse", "coral"] else preds
         if self.n_class == 5:
-            if self.loss_str == "mse":
-                preds = torch.round(F.relu(preds[:, 0], inplace=True)) + 1
-                preds[preds > 4] = 4
-            elif self.loss_str == "coral":
-                preds = torch.sum(torch.sigmoid(preds) > 0.5, dim=1) + 1
-            else:
-                preds = torch.argmax(probs, dim=1) + 1
+            preds = convert_to_labels(self.loss_str, probs)
             mask = targets > 0
             targets = targets[mask]
             preds = preds[mask]
