@@ -143,9 +143,6 @@ class Model(pl.LightningModule):
             np.save(fname, prob)
             Image.fromarray(target).save(fname.replace("probs", "targets") + "_target.png")
 
-    def on_test_epoch_start(self):
-        self.f1_score.reset()
-
     @staticmethod
     def flip(data, axis):
         return torch.flip(data, dims=axis)
@@ -185,25 +182,53 @@ class Model(pl.LightningModule):
     def add_model_specific_args(parent_parser):
         parser = ArgumentParser(parents=[parent_parser], add_help=False)
         arg = parser.add_argument
-        arg("--optimizer", type=str, default="adamw", help="Optimizer")
-        arg("--dmg_model", type=str, default="siamese", help="U-Net variant for damage assessment task")
-        arg("--encoder", type=str, default="resnest200", help="U-Net encoder")
-        arg("--loss_str", type=str, default="focal+dice", help="String used for creation of loss function")
-        arg("--init_lr", type=float, default=1e-4, help="initial learning rate for scheduler")
-        arg("--lr", type=float, default=3e-4, help="learning rate (or target learning rate for scheduler)")
-        arg("--final_lr", type=float, default=1e-4, help="final learning rate for scheduler")
-        arg("--weight_decay", type=float, default=1e-4, help="weight decay")
-        arg("--momentum", type=float, default=0.9, help="momentum for SGD")
-        arg("--dilation", type=int, choices=[1, 2, 4], default=1, help="Dilation rate for encoder")
+        arg(
+            "--optimizer",
+            type=str,
+            default="adamw",
+            choices=["sgd", "adam", "adamw", "radam", "adabelief", "adabound", "adamp", "novograd"],
+        )
+        arg(
+            "--dmg_model",
+            type=str,
+            default="siamese",
+            choices=["siamese", "siameseEnc", "fused", "fusedEnc", "parallel", "parallelEnc", "diff", "cat"],
+            help="U-Net variant for damage assessment task",
+        )
+        arg(
+            "--encoder",
+            type=str,
+            default="resnest200",
+            choices=["resnest50", "resnest101", "resnest200", "resnest269", "resnet50", "resnet101", "resnet152"],
+            help="U-Net encoder",
+        )
+        arg(
+            "--loss_str",
+            type=str,
+            default="focal+dice",
+            help="Combination of: dice, focal, ce, ohem, mse, coral, e.g focal+dice creates the loss function as sum of focal and dice",
+        )
+        arg("--use_scheduler", action="store_true", help="Enable Noam learning rate scheduler")
+        arg("--warmup", type=int, default=1, help="Warmup epochs for Noam learning rate scheduler")
+        arg("--init_lr", type=float, default=1e-4, help="Initial learning rate for Noam scheduler")
+        arg("--final_lr", type=float, default=1e-4, help="Final learning rate for Noam scheduler")
+        arg("--lr", type=float, default=3e-4, help="Learning rate, or a target learning rate for Noam scheduler")
+        arg("--weight_decay", type=float, default=0, help="Weight decay (L2 penalty)")
+        arg("--momentum", type=float, default=0.9, help="Momentum for SGD optimizer")
+        arg(
+            "--dilation",
+            type=int,
+            choices=[1, 2, 4],
+            default=1,
+            help="Dilation rate for a encoder, e.g dilation=2 uses dilation instead of stride in the last encoder block",
+        )
         arg("--tta", action="store_true", help="Enable test time augmentation")
-        arg("--use_scheduler", action="store_true", help="Enable learning rate scheduler")
-        arg("--warmup", type=int, default=1, help="Warmup epochs for learning rate scheduler")
         arg("--ppm", action="store_true", help="Use pyramid pooling module")
         arg("--aspp", action="store_true", help="Use atrous spatial pyramid pooling")
         arg("--no_skip", action="store_true", help="Disable skip connections in UNet")
         arg("--deep_supervision", action="store_true", help="Enable deep supervision")
         arg("--attention", action="store_true", help="Enable attention module at the decoder")
         arg("--autoaugment", action="store_true", help="Use imageNet autoaugment pipeline")
-        arg("--interpolate", action="store_true", help="Interpolate feature map from encoder without decoder")
-        arg("--dec_interp", action="store_true", help="Use interpolation instead of transposed convolution in decoder")
+        arg("--interpolate", action="store_true", help="Interpolate feature map from encoder without a decoder")
+        arg("--dec_interp", action="store_true", help="Use interpolation instead of transposed convolution in a decoder")
         return parser

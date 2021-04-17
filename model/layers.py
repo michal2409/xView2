@@ -4,51 +4,65 @@ from torch import nn
 
 
 class PPM(nn.Module):
-    def __init__(self, in_channels, bins, out_channels):
+    def __init__(self, in_channels):
         super(PPM, self).__init__()
         self.features = []
-        for bin in bins:
+        out_channels = in_channels // 4
+        for bin in (1, 2, 3, 6):
             self.features.append(
                 nn.Sequential(
                     nn.AdaptiveAvgPool2d(bin),
                     nn.Conv2d(in_channels, out_channels, kernel_size=1, bias=False),
                     nn.BatchNorm2d(out_channels, affine=True),
-                    nn.ReLU(inplace=True),
+                    nn.LeakyReLU(negative_slope=0.01, inplace=True),
                 )
             )
         self.features = nn.ModuleList(self.features)
+        self.conv = nn.Conv2d(2 * in_channels, in_channels, kernel_size=1, bias=True)
 
     def forward(self, x):
         x_size = x.size()
         out = [x]
         for f in self.features:
             out.append(F.interpolate(f(x), x_size[2:], mode="bilinear", align_corners=True))
-        return torch.cat(out, 1)
+        out = self.conv(torch.cat(out, 1))
+        return out
 
 
-class ASPPConv(nn.Sequential):
-    def __init__(self, in_channels, out_channels, dilation):
-        modules = [
-            nn.Conv2d(in_channels, out_channels, 3, padding=dilation, dilation=dilation, bias=False),
-            nn.BatchNorm2d(out_channels, affine=True),
-            nn.ReLU(inplace=True),
-        ]
-        super(ASPPConv, self).__init__(*modules)
+class ASPPModule(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size, padding, dilation):
+        super(ASPPModule, self).__init__()
+        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, stride=1, padding=padding, dilation=dilation, bias=False)
+        self.bn = nn.BatchNorm2d(out_channels, affine=True)
+        self.relu = nn.LeakyReLU(negative_slope=0.01, inplace=True)
+        self._init_weight()
+
+    def forward(self, x):
+        return self.relu(self.bn(self.conv(x)))
+
+    def _init_weight(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                torch.nn.init.kaiming_normal_(m.weight)
 
 
 class ASPP(nn.Module):
-    def __init__(self, in_channels, atrous_rates, out_channels):
+    def __init__(self, in_channels, dilation):
         super(ASPP, self).__init__()
-        modules = []
-        for rate in atrous_rates:
-            modules.append(ASPPConv(in_channels, out_channels, rate))
-        self.convs = nn.ModuleList(modules)
+        out_channels = in_channels // 4
+        dilations = [1, 3 * dilation, 6 * dilation, 9 * dilation]
+        self.aspp1 = ASPPModule(in_channels, out_channels, 1, padding=0, dilation=dilations[0])
+        self.aspp2 = ASPPModule(in_channels, out_channels, 3, padding=dilations[1], dilation=dilations[1])
+        self.aspp3 = ASPPModule(in_channels, out_channels, 3, padding=dilations[2], dilation=dilations[2])
+        self.aspp4 = ASPPModule(in_channels, out_channels, 3, padding=dilations[3], dilation=dilations[3])
 
     def forward(self, x):
-        res = [x]
-        for conv in self.convs:
-            res.append(conv(x))
-        return torch.cat(res, dim=1)
+        x1 = self.aspp1(x)
+        x2 = self.aspp2(x)
+        x3 = self.aspp3(x)
+        x4 = self.aspp4(x)
+        out = torch.cat((x1, x2, x3, x4), dim=1)
+        return out
 
 
 class AttentionLayer(nn.Module):
@@ -120,16 +134,16 @@ class UpsampleBlock(nn.Module):
         self.attention = attention
         self.dec_interp = dec_interp
         self.skip_channels = skip_channels
+        inc = skip_channels + out_channels
         if self.dec_interp:
-            inc = skip_channels + in_channels
+            self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1, bias=True)
         else:
             self.conv_tranpose = ConvTranspose(in_channels, out_channels)
-            inc = skip_channels + out_channels
 
         self.conv_block = ConvBlock(inc, out_channels)
         if skip_channels > 0 and self.attention:
             att_out = out_channels // 2
-            self.conv_o = AttentionLayer(in_channels if self.dec_interp else out_channels, att_out)
+            self.conv_o = AttentionLayer(out_channels, att_out)
             self.conv_s = AttentionLayer(skip_channels, att_out)
             self.psi = AttentionLayer(att_out, 1)
             self.sigmoid = nn.Sigmoid()
@@ -137,7 +151,7 @@ class UpsampleBlock(nn.Module):
 
     def forward(self, inputs, skip):
         if self.dec_interp:
-            out = F.interpolate(inputs, scale_factor=2, mode="bilinear", align_corners=True)
+            out = F.interpolate(self.conv(inputs), scale_factor=2, mode="bilinear", align_corners=True)
         else:
             out = self.conv_tranpose(inputs)
 

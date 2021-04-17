@@ -6,6 +6,7 @@ import numpy as np
 from joblib import Parallel, delayed
 from PIL import Image
 from scipy.ndimage.measurements import label
+from scipy.ndimage.morphology import binary_fill_holes
 from tqdm import tqdm
 
 
@@ -29,6 +30,7 @@ def post_process(pre_path, post_path):
         post = dmg
     idx = np.logical_or(loc > 0.3, np.logical_and(loc > 0.1, post > 1))
     pre[idx] = 1
+    pre = binary_fill_holes(pre).astype(np.uint8)
 
     post = post * pre
     components, n = label(post > 0)

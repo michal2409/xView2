@@ -123,15 +123,9 @@ class UNetTemplate(nn.Module):
         )
 
         if self.use_ppm:
-            bins = (1, 2, 3, 6)
-            out_channels = int(self.enc_chn[-1] / len(bins))
-            self.ppm = PPM(self.enc_chn[-1], bins, out_channels)
-            self.enc_chn[-1] += len(bins * out_channels)
+            self.ppm = PPM(self.enc_chn[-1])
         elif self.use_aspp:
-            atrous_rates = [3 * self.dilation, 6 * self.dilation, 9 * self.dilation, 12 * self.dilation]
-            out_channels = int(self.enc_chn[-1] / len(atrous_rates))
-            self.aspp = ASPP(self.enc_chn[-1], atrous_rates, out_channels)
-            self.enc_chn[-1] += out_channels * len(atrous_rates)
+            self.aspp = ASPP(self.enc_chn[-1], self.dilation)
 
         self.dec_chn = None
         if not self.interpolate:
@@ -259,15 +253,9 @@ class SiameseEncUNet(nn.Module):
         )
 
         if self.use_ppm:
-            bins = (1, 2, 3, 6)
-            out_channels = int(self.enc_chn[-1] / len(bins))
-            self.ppm = PPM(self.enc_chn[-1], bins, out_channels)
-            self.enc_chn[-1] += len(bins * out_channels)
+            self.ppm = PPM(self.enc_chn[-1])
         elif self.use_aspp:
-            atrous_rates = [3 * self.dilation, 6 * self.dilation, 9 * self.dilation, 12 * self.dilation]
-            out_channels = int(self.enc_chn[-1] / len(atrous_rates))
-            self.aspp = ASPP(self.enc_chn[-1], atrous_rates, out_channels)
-            self.enc_chn[-1] += out_channels * len(atrous_rates)
+            self.aspp = ASPP(self.enc_chn[-1], self.dilation)
 
         self.dec_chn = None
         self.enc_chn = [2 * enc for enc in self.enc_chn]
@@ -475,6 +463,13 @@ class ParallelEncUNet(nn.Module):
             args.encoder, self.dilation
         )
 
+        if self.use_ppm:
+            self.ppm_pre = PPM(self.enc_chn[-1])
+            self.ppm_post = PPM(self.enc_chn[-1])
+        elif self.use_aspp:
+            self.aspp_pre = ASPP(self.enc_chn[-1], self.dilation)
+            self.aspp_post = ASPP(self.enc_chn[-1], self.dilation)
+
         self.dec_chn = None
         self.enc_chn = [2 * enc for enc in self.enc_chn]
         if not self.interpolate:
@@ -502,6 +497,16 @@ class ParallelEncUNet(nn.Module):
     def forward(self, data):
         enc1_pre, enc2_pre, enc3_pre, enc4_pre, enc5_pre = self.forward_enc(data[:, :3], True)
         enc1_post, enc2_post, enc3_post, enc4_post, enc5_post = self.forward_enc(data[:, 3:], False)
+        if self.use_ppm:
+            enc5_pre = self.ppm_pre(enc5_pre)
+            enc5_post = self.ppm_post(enc5_post)
+        elif self.use_aspp:
+            enc5_pre = self.aspp_pre(enc5_pre)
+            enc5_post = self.aspp_post(enc5_post)
+
+        if self.interpolate:
+            return self.output_block(concat(enc5_pre, enc5_post), None, None)
+
         enc1 = concat(enc1_pre, enc1_post)
         enc2 = concat(enc2_pre, enc2_post)
         enc3 = concat(enc3_pre, enc3_post)

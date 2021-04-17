@@ -1,10 +1,16 @@
-# Problem description
+## Problem description
 
 In this repository, you can train models for the [xView2 challenge](https://xview2.org) to create an accurate and efficient model for building localization and damage assessment based on satellite imagery. For building localization, predicted pixel values must be either 0 (no building) or 1 (building), whereas for building damage classification: 1 (undamaged building), 2 (minor damaged building), 3 (major damaged building), 4 (destroyed building)
 
-<img src="images/img.png" width="900"/>
+IMAGE| LABEL | PREDICTION |
+:-------------------------:|:-------------------------:|:-------------------------:
+![](images/img_0.png)  |  ![](images/lbl_0.png) |  ![](images/pred_0.png)
+![](images/img_1.png)  |  ![](images/lbl_1.png) |  ![](images/pred_1.png)
+![](images/img_2.png)  |  ![](images/lbl_2.png) |  ![](images/pred_2.png)
+![](images/img_3.png)  |  ![](images/lbl_3.png) |  ![](images/pred_3.png)
 
-# Methods
+
+## Methods
 
 The following options can be used to train U-Net models:
 - U-Net encoders:
@@ -32,7 +38,7 @@ The following options can be used to train U-Net models:
 
 In the [usage](#usage) section, you can find the full list of available options whereas in [examples](#examples) you can find a few commands for launching training and evaluation.
 
-# Dataset
+## Dataset
 
 The dataset used in the contests is called xBD and contains 22,068 images each of 1024x1024 size with RGB colors (see the [xBD paper](https://arxiv.org/abs/1911.09296) for more details). The data is available for download from the [xView2 challenge website](https://xview2.org) (registration required).
 
@@ -63,9 +69,12 @@ This repository assumes the following data layout:
                └── ...
 ```
 
-For example to convert json files within `DATA_PATH/train` directory, use `python utils/convert2png.py --data DATA_PATH/train` 
+For example to convert json files within `DATA_PATH/train` directory, use:
+```
+python utils/convert2png.py --data DATA_PATH/train
+```
 
-# Installation
+## Installation
 
 The repository contains Dockerfile which handles all required dependencies. Here are the steps to prepare the environment:
 
@@ -81,7 +90,7 @@ where
 - **DATA_PATH** is the path to xBD directory with layout as described in the [dataset](#dataset) section
 - **RESULTS_PATH** is the path to the directory for artifacts like checkpoints, log output or predictions
 
-# Usage
+## Usage
 
 Here are the options for the `main.py` script:
  
@@ -90,45 +99,49 @@ usage: python main.py [--optional arguments]
 
 optional arguments:
   -h, --help            show this help message and exit
-  --exec_mode           Execution mode. One from {train,eval}
-  --data                Path to data directory
-  --results             Path to results directory
-  --gpus {0,1}          Number of gpus to use
+  --exec_mode {train,eval}
+                        Execution mode of main script
+  --data                Path to the data directory
+  --results             Path to the results directory
+  --gpus                Number of gpus to use
   --num_workers         Number of subprocesses to use for data loading
   --batch_size          Training batch size
-  --val_batch_size      Validation or test batch size
-  --precision {16,32}   Training and evaluation precision
-  --epochs              Maximum number of epochs
+  --val_batch_size      Evaluation batch size
+  --precision {16,32}   Numerical precision
+  --epochs              Max number of epochs      
   --patience            Early stopping patience
   --ckpt                Path to pretrained checkpoint
   --logname             Name of logging file
-  --ckpt_pre            Path to pretrained checkpoint of localization model used to initialize network for damage assessment
-  --type {pre,post}     Type of task to run; pre - localization, post - damage assessment
-  --seed                Seed
-  --optimizer           Optimizer
-  --dmg_model           U-Net variant for damage assessment task
-  --encoder             U-Net encoder
-  --loss_str            String used for creation of loss function
-  --init_lr             initial learning rate for scheduler
-  --lr                  learning rate (or target learning rate for scheduler)
-  --final_lr            final learning rate for scheduler
-  --weight_decay        weight decay
-  --momentum            momentum for SGD
-  --dilation            Dilation rate for encoder. One from {1,2,4}
+  --ckpt_pre            Path to pretrained checkpoint of localization model used to initialize network for damage assesment
+  --type {pre,post}     Type of task to run; pre - localization, post - damage assesment
+  --seed
+  --optimizer {sgd,adam,adamw,radam,adabelief,adabound,adamp,novograd}
+  --dmg_model {siamese,siameseEnc,fused,fusedEnc,parallel,parallelEnc,diff,cat}
+                        U-Net variant for damage assessment task
+  --encoder {resnest50,resnest101,resnest200,resnest269,resnet50,resnet101,resnet152}
+                        U-Net encoder
+  --loss_str            String used for creation of loss function, e.g focal+dice creates the loss function as sum of focal and dice.
+                        Available functions: dice, focal, ce, ohem, mse, coral
+  --use_scheduler       Enable Noam learning rate scheduler
+  --warmup              Warmup epochs for Noam learning rate scheduler
+  --init_lr             Initial learning rate for Noam scheduler
+  --final_lr            Final learning rate for Noam scheduler
+  --lr                  Learning rate, or a target learning rate for Noam scheduler
+  --weight_decay        Weight decay (L2 penalty)
+  --momentum            Momentum for SGD optimizer
+  --dilation {1,2,4}    Dilation rate for a encoder, e.g dilation=2 uses dilation instead of stride in the last encoder block
   --tta                 Enable test time augmentation
-  --use_scheduler       Enable learning rate scheduler
-  --warmup              Warmup epochs for learning rate scheduler
   --ppm                 Use pyramid pooling module
   --aspp                Use atrous spatial pyramid pooling
   --no_skip             Disable skip connections in UNet
   --deep_supervision    Enable deep supervision
   --attention           Enable attention module at the decoder
-  --autoaugment         Use imageNet auto augment pipeline
-  --interpolate         Don't use decoder and just interpolate feature map from encoder
-  --dec_interp          Use interpolation instead of transposed convolution in decoder
+  --autoaugment         Use imageNet autoaugment pipeline
+  --interpolate         Interpolate feature map from encoder without a decoder
+  --dec_interp          Use interpolation instead of transposed convolution in a decoder
 ```
 
-# Examples
+## Examples
 
 To train the building localization task with the resnest200 encoder, cross entropy + dice loss function, deep supervision, attention and test time augmentation with 1 gpu and batch size 16 for training and 8 for evaluation, launch:
 
@@ -160,7 +173,7 @@ To get the final score, launch:
 python utils/xview2_metrics.py /results/predictions /results/targets /results/score.json && cat /results/score.json
 ```
 
-# References
+## References
 
 - [xView2 challange](https://xview2.org)
 - [xBD paper](https://arxiv.org/abs/1911.09296)

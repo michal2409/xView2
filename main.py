@@ -1,5 +1,6 @@
 import os
 from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
+from glob import glob
 from subprocess import call
 
 import torch
@@ -25,15 +26,15 @@ def set_cuda_devices(gpus):
 if __name__ == "__main__":
     parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
     arg = parser.add_argument
-    arg("--exec_mode", type=str, choices=["train", "eval"], default="train", help="Execution mode")
-    arg("--data", type=str, default="/data", help="Path to data directory")
-    arg("--results", type=str, default="/results", help="Path to results directory")
+    arg("--exec_mode", type=str, choices=["train", "eval"], default="train", help="Execution mode of main script")
+    arg("--data", type=str, default="/data", help="Path to the data directory")
+    arg("--results", type=str, default="/results", help="Path to the results directory")
     arg("--gpus", type=int, default=1, choices=list(range(torch.cuda.device_count() + 1)), help="Number of gpus to use")
     arg("--num_workers", type=int, default=8, help="Number of subprocesses to use for data loading")
-    arg("--batch_size", type=int, default=16)
-    arg("--precision", type=int, default=16, choices=[16, 32])
-    arg("--val_batch_size", type=int, default=13)
-    arg("--epochs", type=int, default=250)
+    arg("--batch_size", type=int, default=16, help="Training batch size")
+    arg("--val_batch_size", type=int, default=13, help="Evaluation batch size")
+    arg("--precision", type=int, default=16, choices=[16, 32], help="Numerical precision")
+    arg("--epochs", type=int, default=250, help="Max number of epochs")
     arg("--patience", type=int, default=100, help="Early stopping patience")
     arg("--ckpt", type=str, default=None, help="Path to pretrained checkpoint")
     arg("--logname", type=str, default="logs", help="Name of logging file")
