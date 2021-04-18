@@ -11,7 +11,6 @@ def convert_to_labels(loss_str, logits):
     elif loss_str == "coral":
         preds = torch.sum(torch.sigmoid(logits) > 0.5, dim=1) + 1
     else:
-        logits[0] *= 0.65
         preds = torch.argmax(logits, dim=1) + 1
     return preds
 

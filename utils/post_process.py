@@ -24,7 +24,6 @@ def post_process(pre_path, post_path):
     loc, dmg = np.load(pre_path), np.load(post_path)
 
     if dmg.shape[0] == 4:
-        dmg[0] *= 0.65
         post = np.argmax(dmg, axis=0) + 1
     else:
         post = dmg
@@ -50,6 +49,5 @@ if __name__ == "__main__":
     pre_pred = sorted(glob("/results/probs/*localization*"))
     post_pred = sorted(glob("/results/probs/*damage*"))
     Parallel(n_jobs=-1)(
-        delayed(post_process)(pre_path, post_path)
-        for pre_path, post_path in tqdm(zip(pre_pred, post_pred), total=len(pre_pred))
+        delayed(post_process)(pre_path, post_path) for pre_path, post_path in tqdm(zip(pre_pred, post_pred), total=len(pre_pred))
     )

@@ -2,7 +2,7 @@
 
 In this repository, you can train models for the [xView2 challenge](https://xview2.org) to create an accurate and efficient model for building localization and damage assessment based on satellite imagery. For building localization, predicted pixel values must be either 0 (no building) or 1 (building), whereas for building damage classification: 1 (undamaged building), 2 (minor damaged building), 3 (major damaged building), 4 (destroyed building)
 
-IMAGE| LABEL | PREDICTION |
+IMAGE | LABEL | PREDICTION |
 :-------------------------:|:-------------------------:|:-------------------------:
 ![](images/img_0.png)  |  ![](images/lbl_0.png) |  ![](images/pred_0.png)
 ![](images/img_1.png)  |  ![](images/lbl_1.png) |  ![](images/pred_1.png)
