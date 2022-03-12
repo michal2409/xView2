@@ -1,6 +1,6 @@
 git+https://github.com/zhanghang1989/ResNeSt
 git+https://github.com/NVIDIA/dllogger
-pillow==8.3.2
+pillow==9.0.1
 tqdm==4.51.0
 joblib==0.17.0
 pytorch-lightning==1.0.0
