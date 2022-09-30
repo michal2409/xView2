@@ -2,7 +2,7 @@ git+https://github.com/zhanghang1989/ResNeSt
 git+https://github.com/NVIDIA/dllogger
 pillow==8.3.2
 tqdm==4.51.0
-joblib==0.17.0
+joblib==1.2.0
 pytorch-lightning==1.0.0
 opencv-python==4.4.0.46
 shapely==1.7.1
